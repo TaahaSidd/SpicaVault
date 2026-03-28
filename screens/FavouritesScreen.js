@@ -1,12 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
-import {
-    Dimensions, FlatList, Image, StatusBar,
-    StyleSheet, Text, TouchableOpacity, View,
-} from 'react-native';
+import { Dimensions, FlatList, Image, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+import NoFavSVG from '../assets/Svg/NoFavSVG.svg';
+import BottomNavBar from '../components/BottomNavBar';
+import Header from '../components/Header'; // Import the new component
 import { Colors, FontSize, FontWeight, Radius, Spacing } from '../constants/theme';
 import { useVaultStorage } from '../context/VaultContext';
-import NoFavSVG from '../assets/Svg/NoFavSVG.svg';
 
 const { width } = Dimensions.get('window');
 const GAP = 3;
@@ -22,12 +22,12 @@ export default function FavouritesScreen({ navigation }) {
             <SafeAreaView style={{ flex: 1 }} edges={['top']}>
                 <StatusBar barStyle="light-content" backgroundColor={theme.background} />
 
-                <View style={styles.header}>
-                    <Text style={styles.headerTitle}>Favourites</Text>
-                    {favouriteItems.length > 0 && (
-                        <Text style={styles.headerCount}>{favouriteItems.length} files</Text>
-                    )}
-                </View>
+                {/* --- NEW HEADER IMPLEMENTATION --- */}
+                <Header
+                    type="brand"
+                    title="Favourites"
+                    subtitle={favouriteItems.length > 0 ? `${favouriteItems.length} files` : null}
+                />
 
                 {favouriteItems.length === 0 ? (
                     <View style={styles.emptyContainer}>
@@ -67,18 +67,17 @@ export default function FavouritesScreen({ navigation }) {
                     />
                 )}
             </SafeAreaView>
+
+            <BottomNavBar
+                active="Favourites"
+                onNavigate={(screen) => navigation.navigate(screen)}
+            />
         </View>
     );
 }
 
 const styles = StyleSheet.create({
     screen: { flex: 1 },
-    header: {
-        paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md,
-        flexDirection: 'row', alignItems: 'baseline', gap: Spacing.sm,
-    },
-    headerTitle: { fontSize: 26, fontWeight: FontWeight.bold, color: '#fff', letterSpacing: -0.3 },
-    headerCount: { fontSize: FontSize.sm, color: theme.textSecondary },
     grid: { paddingHorizontal: GAP, paddingBottom: 120 },
     row: { gap: GAP, marginBottom: GAP },
     tile: {
