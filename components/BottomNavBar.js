@@ -6,7 +6,7 @@ import { Brand, Colors, FontSize, FontWeight } from '../constants/theme';
 const theme = Colors.dark;
 
 const TABS = [
-    { name: 'Vault', icon: 'shield', iconOutline: 'shield-outline', screen: 'VaultHome' },
+    { name: 'Vault', icon: 'shield', iconOutline: 'shield-outline', screen: 'Vault' },
     { name: 'Favourites', icon: 'heart', iconOutline: 'heart-outline', screen: 'Favourites' },
     { name: 'Albums', icon: 'folder', iconOutline: 'folder-outline', screen: 'Albums' },
     { name: 'Settings', icon: 'settings', iconOutline: 'settings-outline', screen: 'Settings' },
