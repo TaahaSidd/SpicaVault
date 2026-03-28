@@ -20,6 +20,7 @@
       },
       "package": "com.spicalabs.securevault",
       "edgeToEdgeEnabled": true,
+      "allowBackup": false,
       "permissions": [
         "android.permission.READ_MEDIA_IMAGES",
         "android.permission.READ_MEDIA_VIDEO",
@@ -27,7 +28,11 @@
         "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
         "android.permission.ACCESS_MEDIA_LOCATION",
-        "android.permission.READ_MEDIA_AUDIO"
+        "android.permission.READ_MEDIA_AUDIO",
+        "android.permission.MANAGE_MEDIA",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT",
+        "android.permission.CAMERA"
       ]
     },
     "plugins": [
@@ -50,6 +55,9 @@
       ],
       "expo-video",
       "expo-secure-store",
+      "expo-local-authentication",
+      "expo-sqlite",
+      "expo-screen-orientation",
       [
         "react-native-google-mobile-ads",
         {
