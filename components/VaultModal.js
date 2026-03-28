@@ -2,31 +2,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef } from 'react';
 import {
     Animated, Modal, Pressable,
-    StyleSheet, Text, TouchableOpacity, View,
+    StyleSheet, Text, View,
 } from 'react-native';
 import { Brand, Colors, FontSize, FontWeight, Radius, Spacing } from '../constants/theme';
+import Button from './Button'; // Assuming your Button component is in the same directory
 
 const theme = Colors.dark;
-
-/**
- * VaultModal — general purpose modal
- *
- * Usage:
- * <VaultModal
- *   visible={show}
- *   type="confirm"           // confirm | alert | custom
- *   title="Delete File"
- *   message="This cannot be undone."
- *   primaryText="Delete"
- *   secondaryText="Cancel"
- *   primaryDestructive       // makes primary button red
- *   onPrimary={() => {}}
- *   onSecondary={() => {}}
- *   onClose={() => setShow(false)}
- * >
- *   // optional custom content for type="custom"
- * </VaultModal>
- */
 
 const ICONS = {
     delete: { name: 'trash-outline', color: '#EF4444' },
@@ -45,6 +26,8 @@ export default function VaultModal({
     primaryText = 'Confirm',
     secondaryText = 'Cancel',
     primaryDestructive = false,
+    loading = false,       // New: Pass through to Button
+    holdToTrigger = false, // New: Pass through to Button
     onPrimary,
     onSecondary,
     onClose,
@@ -81,55 +64,44 @@ export default function VaultModal({
         >
             <Pressable style={styles.overlay} onPress={onClose}>
                 <Animated.View
-                    style={[styles.card, { backgroundColor: theme.elevated, opacity, transform: [{ scale }] }]}
+                    style={[
+                        styles.card,
+                        { backgroundColor: theme.elevated, opacity, transform: [{ scale }] }
+                    ]}
                     onStartShouldSetResponder={() => true}
                 >
-                    {/* Icon */}
+                    {/* Icon Section */}
                     {iconConfig && (
                         <View style={[styles.iconWrap, { backgroundColor: iconConfig.color + '15' }]}>
                             <Ionicons name={iconConfig.name} size={28} color={iconConfig.color} />
                         </View>
                     )}
 
-                    {/* Title */}
+                    {/* Content Section */}
                     {title && <Text style={styles.title}>{title}</Text>}
-
-                    {/* Message */}
                     {message && <Text style={styles.message}>{message}</Text>}
-
-                    {/* Custom content */}
                     {children && <View style={styles.customContent}>{children}</View>}
 
-                    {/* Buttons */}
+                    {/* Action Section */}
                     {type !== 'custom' && (
                         <View style={styles.btnRow}>
                             {secondaryText && (
-                                <TouchableOpacity
-                                    style={[styles.btn, { backgroundColor: theme.overlay }]}
+                                <Button
+                                    title={secondaryText}
+                                    variant="secondary"
                                     onPress={onSecondary || onClose}
-                                    activeOpacity={0.7}
-                                >
-                                    <Text style={[styles.btnText, { color: theme.textSecondary }]}>
-                                        {secondaryText}
-                                    </Text>
-                                </TouchableOpacity>
+                                    disabled={loading}
+                                />
                             )}
-                            <TouchableOpacity
-                                style={[styles.btn, {
-                                    backgroundColor: primaryDestructive ? '#EF4444' : Brand.primary,
-                                    flex: secondaryText ? 1 : undefined,
-                                    paddingHorizontal: secondaryText ? undefined : Spacing.xxl,
-                                }]}
+                            <Button
+                                title={primaryText}
+                                variant={primaryDestructive ? 'danger' : 'primary'}
                                 onPress={onPrimary}
-                                activeOpacity={0.8}
-                            >
-                                <Text style={[styles.btnText, {
-                                    color: primaryDestructive ? '#fff' : '#000',
-                                    fontWeight: FontWeight.bold,
-                                }]}>
-                                    {primaryText}
-                                </Text>
-                            </TouchableOpacity>
+                                loading={loading}
+                                holdToTrigger={holdToTrigger}
+                                // If no secondary text, make the primary button fit content rather than flex
+                                fullWidth={true}
+                            />
                         </View>
                     )}
                 </Animated.View>
@@ -151,11 +123,14 @@ const styles = StyleSheet.create({
         borderRadius: Radius.xl,
         padding: Spacing.xl,
         alignItems: 'center',
-        gap: Spacing.sm,
+        gap: Spacing.xs,
     },
     iconWrap: {
-        width: 60, height: 60, borderRadius: 999,
-        alignItems: 'center', justifyContent: 'center',
+        width: 60,
+        height: 60,
+        borderRadius: 999,
+        alignItems: 'center',
+        justifyContent: 'center',
         marginBottom: Spacing.sm,
     },
     title: {
@@ -169,6 +144,7 @@ const styles = StyleSheet.create({
         color: Colors.dark.textSecondary,
         textAlign: 'center',
         lineHeight: 20,
+        paddingHorizontal: Spacing.sm,
     },
     customContent: {
         width: '100%',
@@ -179,15 +155,5 @@ const styles = StyleSheet.create({
         gap: Spacing.sm,
         marginTop: Spacing.md,
         width: '100%',
-    },
-    btn: {
-        flex: 1,
-        paddingVertical: Spacing.md,
-        borderRadius: Radius.full,
-        alignItems: 'center',
-    },
-    btnText: {
-        fontSize: FontSize.md,
-        fontWeight: FontWeight.semibold,
     },
 });
