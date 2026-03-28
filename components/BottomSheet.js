@@ -10,22 +10,6 @@ import { Colors, FontSize, FontWeight, Spacing } from '../constants/theme';
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const theme = Colors.dark;
 
-/**
- * BottomSheet — Reddit-style swipeable bottom sheet
- *
- * Usage:
- * <BottomSheet visible={show} onClose={() => setShow(false)} title="Options">
- *   <Text>Your content here</Text>
- * </BottomSheet>
- *
- * Props:
- * - visible: bool
- * - onClose: fn
- * - title: string (optional)
- * - snapPoint: number 0-1, default 0.5 (50% of screen height)
- * - showHandle: bool, default true
- * - showCloseBtn: bool, default true
- */
 export default function BottomSheet({
     visible,
     onClose,
@@ -38,7 +22,9 @@ export default function BottomSheet({
     const insets = useSafeAreaInsets();
     const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
     const overlayOpacity = useRef(new Animated.Value(0)).current;
-    const sheetHeight = SCREEN_HEIGHT * snapPoint;
+
+    // Calculate height including safe area to prevent clipping
+    const sheetHeight = (SCREEN_HEIGHT * snapPoint) + insets.bottom;
 
     useEffect(() => {
         if (visible) {
@@ -67,7 +53,6 @@ export default function BottomSheet({
         ]).start(() => onClose?.());
     };
 
-    // Swipe down to dismiss
     const panResponder = useRef(PanResponder.create({
         onStartShouldSetPanResponder: () => true,
         onMoveShouldSetPanResponder: (_, gs) => gs.dy > 5,
@@ -75,7 +60,7 @@ export default function BottomSheet({
             if (gs.dy > 0) translateY.setValue(gs.dy);
         },
         onPanResponderRelease: (_, gs) => {
-            if (gs.dy > sheetHeight * 0.35 || gs.vy > 0.5) {
+            if (gs.dy > (sheetHeight * 0.35) || gs.vy > 0.5) {
                 close();
             } else {
                 Animated.spring(translateY, {
@@ -90,18 +75,14 @@ export default function BottomSheet({
 
     return (
         <Modal transparent animationType="none" visible={visible} onRequestClose={close}>
-            {/* Overlay */}
             <Animated.View style={[styles.overlay, { opacity: overlayOpacity }]}>
                 <Pressable style={StyleSheet.absoluteFill} onPress={close} />
             </Animated.View>
 
-            {/* Sheet */}
             <Animated.View style={[
                 styles.sheet,
-                { height: sheetHeight + insets.bottom, transform: [{ translateY }] },
-                { backgroundColor: theme.elevated }
+                { height: sheetHeight, transform: [{ translateY }], backgroundColor: theme.elevated }
             ]}>
-                {/* Handle area — swipe target */}
                 <View {...panResponder.panHandlers} style={styles.handleArea}>
                     {showHandle && <View style={[styles.handle, { backgroundColor: theme.border }]} />}
                     {(title || showCloseBtn) && (
@@ -116,7 +97,7 @@ export default function BottomSheet({
                     )}
                 </View>
 
-                {/* Content */}
+                {/* Content with automatic bottom padding for Safe Area */}
                 <View style={[styles.content, { paddingBottom: insets.bottom + Spacing.md }]}>
                     {children}
                 </View>
@@ -126,40 +107,19 @@ export default function BottomSheet({
 }
 
 const styles = StyleSheet.create({
-    overlay: {
-        ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(0,0,0,0.6)',
-    },
+    overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)' },
     sheet: {
         position: 'absolute',
         bottom: 0, left: 0, right: 0,
-        borderTopLeftRadius: 28,
-        borderTopRightRadius: 28,
+        borderTopLeftRadius: 28, borderTopRightRadius: 28,
+        overflow: 'hidden'
     },
-    handleArea: {
-        paddingTop: Spacing.sm,
-    },
-    handle: {
-        width: 36, height: 4, borderRadius: 2,
-        alignSelf: 'center',
-        marginBottom: Spacing.sm,
-    },
+    handleArea: { paddingTop: Spacing.sm },
+    handle: { width: 36, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: Spacing.sm },
     header: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingHorizontal: Spacing.lg,
-        paddingVertical: Spacing.md,
-        borderBottomWidth: 0.5,
+        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+        paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md, borderBottomWidth: 0.5,
     },
-    headerTitle: {
-        fontSize: FontSize.lg,
-        fontWeight: FontWeight.bold,
-        color: '#fff',
-    },
-    content: {
-        flex: 1,
-        paddingHorizontal: Spacing.lg,
-        paddingTop: Spacing.md,
-    },
+    headerTitle: { fontSize: FontSize.lg, fontWeight: FontWeight.bold, color: '#fff' },
+    content: { flex: 1, paddingHorizontal: Spacing.lg, paddingTop: Spacing.md },
 });
