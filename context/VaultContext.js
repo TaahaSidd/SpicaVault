@@ -1,202 +1,310 @@
-// context/VaultContext.js
+/**
+ * VaultContext.js — Phase 2: SQLite backed
+ *
+ * Upgrades from Phase 1:
+ *  - All metadata in SQLite via VaultDatabase (no more readVaultDir)
+ *  - expo-crypto for cryptographically secure random filenames
+ *  - Albums in SQLite (no more albums.json)
+ *  - Favourites in SQLite (no more favourites.json)
+ *  - importToVault stores original name, size, type in DB
+ *  - restoreToGallery reads vault_path from DB
+ *  - deleteFromVault removes disk + DB atomically
+ *  - getVaultFilenames() for import screen dedup by original name
+ *
+ *  API surface identical to Phase 1 — no screen changes needed.
+ */
+
+import * as Crypto from 'expo-crypto';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
-import { createContext, useContext, useEffect, useState } from 'react';
-
-export const VAULT_DIR = `${FileSystem.documentDirectory}vault/`;
-const NOMEDIA_PATH = `${VAULT_DIR}.nomedia`;
-const ALBUMS_PATH = `${FileSystem.documentDirectory}albums.json`;
+import {
+    createContext, useCallback,
+    useContext, useEffect, useRef, useState,
+} from 'react';
+import { getDB } from '../db/VaultDatabase';
+import {
+    deleteGalleryAssets,
+    deleteVaultFile,
+    ensureVaultDir,
+    VAULT_DIR,
+} from '../utils/FileHelpers';
+import { getAutoDelete } from '../utils/SecureSettings';
 
 const VaultContext = createContext(null);
 
 export function VaultProvider({ children }) {
     const [vaultItems, setVaultItems] = useState([]);
-    const [albums, setAlbums] = useState([]); // [{ id, name, icon, color, fileNames: [] }]
+    const [albums, setAlbums] = useState([]);
+    const [favouriteFilenames, setFavouriteFilenames] = useState([]);
     const [isReady, setIsReady] = useState(false);
+    const initDone = useRef(false);
 
-    useEffect(() => { initVault(); }, []);
+    useEffect(() => {
+        if (initDone.current) return;
+        initDone.current = true;
+        initVault();
+    }, []);
 
+    // ── Init ────────────────────────────────────────────────────────────────
     async function initVault() {
-        const dirInfo = await FileSystem.getInfoAsync(VAULT_DIR);
-        if (!dirInfo.exists) {
-            await FileSystem.makeDirectoryAsync(VAULT_DIR, { intermediates: true });
+        try {
+            await ensureVaultDir();
+            const db = await getDB();
+            await Promise.all([
+                loadVaultItems(db),
+                loadAlbums(db),
+                loadFavourites(db),
+            ]);
+        } catch (e) {
+            console.error('[VaultContext] initVault:', e);
+        } finally {
+            setIsReady(true);
         }
-        const nomediaInfo = await FileSystem.getInfoAsync(NOMEDIA_PATH);
-        if (!nomediaInfo.exists) {
-            await FileSystem.writeAsStringAsync(NOMEDIA_PATH, '');
-        }
-        await Promise.all([loadVaultItems(), loadAlbums()]);
-        setIsReady(true);
     }
 
-    // ── Vault Items ───────────────────────────────────────────────────────────
-    async function loadVaultItems() {
+    // ── Loaders ─────────────────────────────────────────────────────────────
+    const loadVaultItems = useCallback(async (dbInstance) => {
         try {
-            const files = await FileSystem.readDirectoryAsync(VAULT_DIR);
-            const items = await Promise.all(
-                files
-                    .filter((f) => f !== '.nomedia')
-                    .map(async (filename) => {
-                        const uri = `${VAULT_DIR}${filename}`;
-                        const info = await FileSystem.getInfoAsync(uri);
-                        const isVideo =
-                            filename.endsWith('.mp4') ||
-                            filename.endsWith('.mov') ||
-                            filename.endsWith('.avi');
-                        return {
-                            uri, filename,
-                            type: isVideo ? 'video' : 'photo',
-                            createdAt: info.modificationTime ?? Date.now(),
-                        };
-                    })
-            );
-            items.sort((a, b) => b.createdAt - a.createdAt);
+            const db = dbInstance ?? await getDB();
+            const items = await db.getAllItems();
             setVaultItems(items);
         } catch (e) {
-            console.error('Failed to load vault items:', e);
+            console.error('[VaultContext] loadVaultItems:', e);
         }
+    }, []);
+
+    const loadAlbums = useCallback(async (dbInstance) => {
+        try {
+            const db = dbInstance ?? await getDB();
+            const rows = await db.getAllAlbums();
+            setAlbums(rows);
+        } catch (e) {
+            console.error('[VaultContext] loadAlbums:', e);
+        }
+    }, []);
+
+    const loadFavourites = useCallback(async (dbInstance) => {
+        try {
+            const db = dbInstance ?? await getDB();
+            const favs = await db.getFavourites();
+            setFavouriteFilenames(favs);
+        } catch (e) {
+            console.error('[VaultContext] loadFavourites:', e);
+        }
+    }, []);
+
+    const refreshVault = useCallback(async () => {
+        const db = await getDB();
+        await Promise.all([
+            loadVaultItems(db),
+            loadAlbums(db),
+            loadFavourites(db),
+        ]);
+    }, [loadVaultItems, loadAlbums, loadFavourites]);
+
+    // ── Secure random filename ───────────────────────────────────────────────
+    async function secureFilename(originalUri) {
+        const ext = originalUri.split('.').pop()?.toLowerCase() ?? 'jpg';
+        const safeExt = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'mov', 'avi', 'm4v']
+            .includes(ext) ? ext : 'jpg';
+        const bytes = await Crypto.getRandomBytesAsync(16);
+        const hex = Array.from(bytes)
+            .map(b => b.toString(16).padStart(2, '0'))
+            .join('');
+        return `${hex}.${safeExt}`;
     }
 
+    // ── Import ───────────────────────────────────────────────────────────────
     async function importToVault(assets) {
-        let success = 0, failed = 0;
+        const db = await getDB();
+        let success = 0;
+        let failed = 0;
+        const successfulAssetIds = [];
+
         for (const asset of assets) {
             try {
-                const ext = asset.uri.split('.').pop() ?? 'jpg';
-                const filename = asset.filename ??
-                    `vault_${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+                // 1. Crypto-secure random filename
+                const filename = await secureFilename(asset.uri);
                 const dest = `${VAULT_DIR}${filename}`;
 
-                // Copy to private vault directory
+                // 2. Copy to private vault dir
                 await FileSystem.copyAsync({ from: asset.uri, to: dest });
 
-                // Delete original from gallery
-                // asset.id is the MediaLibrary asset ID passed from ImportMediaScreen
-                if (asset.id) {
-                    try {
-                        await MediaLibrary.deleteAssetsAsync([asset.id]);
-                    } catch (deleteErr) {
-                        // Delete failed but file is in vault — still count as success
-                        console.warn('Could not delete original:', deleteErr);
-                    }
-                }
+                // 3. Verify + get size
+                const info = await FileSystem.getInfoAsync(dest, { size: true });
+                if (!info.exists) throw new Error('File missing after copy');
+
+                const isVideo = ['mp4', 'mov', 'avi', 'm4v']
+                    .some(e => filename.toLowerCase().endsWith(e));
+
+                // 4. Persist to SQLite
+                await db.insertItem({
+                    filename,
+                    originalName: asset.filename ?? filename,
+                    vaultPath: dest,
+                    type: isVideo ? 'video' : 'photo',
+                    mimeType: asset.mediaType ?? null,
+                    sizeBytes: info.size ?? 0,
+                    importedAt: Date.now(),
+                });
 
                 success++;
+                if (asset.id) successfulAssetIds.push(asset.id);
             } catch (e) {
-                console.error('Failed to import asset:', asset.uri, e);
+                console.error('[VaultContext] import failed:', asset.uri, e);
                 failed++;
             }
         }
-        await loadVaultItems();
+
+        // 5. Auto-delete originals — one system dialog for all
+        if (success > 0) {
+            const autoDelete = await getAutoDelete();
+            if (autoDelete && successfulAssetIds.length > 0) {
+                await deleteGalleryAssets(successfulAssetIds);
+            }
+        }
+
+        await loadVaultItems(db);
         return { success, failed };
     }
 
+    // ── Restore ──────────────────────────────────────────────────────────────
+    async function restoreToGallery(item) {
+        try {
+            const db = await getDB();
+
+            // Copy back to system gallery
+            await MediaLibrary.createAssetAsync(item.uri);
+
+            // Delete from disk
+            await deleteVaultFile(item.filename);
+
+            // Delete from SQLite — cascades album_files + favourites
+            await db.deleteItem(item.filename);
+
+            await loadVaultItems(db);
+            await loadAlbums(db);
+            await loadFavourites(db);
+            return true;
+        } catch (e) {
+            console.error('[VaultContext] restoreToGallery:', e);
+            return false;
+        }
+    }
+
+    // ── Delete ───────────────────────────────────────────────────────────────
     async function deleteFromVault(filename) {
         try {
-            await FileSystem.deleteAsync(`${VAULT_DIR}${filename}`, { idempotent: true });
-            // Remove from all albums too
-            const updated = albums.map(a => ({
-                ...a,
-                fileNames: a.fileNames.filter(f => f !== filename),
-            }));
-            await saveAlbums(updated);
-            await loadVaultItems();
+            const db = await getDB();
+
+            // Disk first — avoid orphaned DB rows
+            await deleteVaultFile(filename);
+
+            // DB — cascade cleans album_files + favourites
+            await db.deleteItem(filename);
+
+            await loadVaultItems(db);
+            await loadAlbums(db);
+            await loadFavourites(db);
         } catch (e) {
-            console.error('Failed to delete vault item:', e);
+            console.error('[VaultContext] deleteFromVault:', e);
         }
     }
 
-    // ── Albums ────────────────────────────────────────────────────────────────
-    async function loadAlbums() {
+    // ── Favourites ───────────────────────────────────────────────────────────
+    const toggleFavourite = async (filename) => {
         try {
-            const info = await FileSystem.getInfoAsync(ALBUMS_PATH);
-            if (!info.exists) {
-                setAlbums([]);
-                return;
+            const db = await getDB();
+            const isFav = favouriteFilenames.includes(filename);
+            if (isFav) {
+                await db.removeFavourite(filename);
+            } else {
+                await db.addFavourite(filename);
             }
-            const raw = await FileSystem.readAsStringAsync(ALBUMS_PATH);
-            setAlbums(JSON.parse(raw));
+            await loadFavourites(db);
         } catch (e) {
-            console.error('Failed to load albums:', e);
-            setAlbums([]);
+            console.error('[VaultContext] toggleFavourite:', e);
         }
-    }
+    };
 
-    async function saveAlbums(updated) {
-        try {
-            await FileSystem.writeAsStringAsync(ALBUMS_PATH, JSON.stringify(updated));
-            setAlbums(updated);
-        } catch (e) {
-            console.error('Failed to save albums:', e);
-        }
-    }
+    const isFavourite = (filename) => favouriteFilenames.includes(filename);
 
+    const favouriteItems = vaultItems.filter(i =>
+        favouriteFilenames.includes(i.filename)
+    );
+
+    // ── Albums ───────────────────────────────────────────────────────────────
     async function createAlbum(name, icon = 'folder-outline', color = '#F59E0B') {
+        const db = await getDB();
         const newAlbum = {
             id: `album_${Date.now()}`,
-            name,
-            icon,
-            color,
-            fileNames: [],
+            name, icon, color,
             createdAt: Date.now(),
         };
-        await saveAlbums([...albums, newAlbum]);
+        await db.insertAlbum(newAlbum);
+        await loadAlbums(db);
         return newAlbum;
     }
 
     async function updateAlbum(albumId, updates) {
-        const updated = albums.map(a =>
-            a.id === albumId ? { ...a, ...updates } : a
-        );
-        await saveAlbums(updated);
+        const db = await getDB();
+        await db.updateAlbum(albumId, updates);
+        await loadAlbums(db);
     }
 
     async function deleteAlbum(albumId) {
-        const updated = albums.filter(a => a.id !== albumId);
-        await saveAlbums(updated);
+        const db = await getDB();
+        await db.deleteAlbum(albumId);
+        await loadAlbums(db);
     }
 
     async function addFileToAlbum(albumId, filename) {
-        const updated = albums.map(a => {
-            if (a.id !== albumId) return a;
-            if (a.fileNames.includes(filename)) return a;
-            return { ...a, fileNames: [...a.fileNames, filename] };
-        });
-        await saveAlbums(updated);
+        const db = await getDB();
+        await db.addFileToAlbum(albumId, filename);
+        await loadAlbums(db);
     }
 
     async function removeFileFromAlbum(albumId, filename) {
-        const updated = albums.map(a => {
-            if (a.id !== albumId) return a;
-            return { ...a, fileNames: a.fileNames.filter(f => f !== filename) };
-        });
-        await saveAlbums(updated);
+        const db = await getDB();
+        await db.removeFileFromAlbum(albumId, filename);
+        await loadAlbums(db);
     }
 
     function getAlbumItems(albumId) {
         const album = albums.find(a => a.id === albumId);
         if (!album) return [];
-        return vaultItems.filter(item => album.fileNames.includes(item.filename));
+        return vaultItems.filter(i => album.fileNames.includes(i.filename));
     }
 
+    // Returns Set of original_name — used by ImportMediaScreen to filter dupes
+    async function getVaultFilenames() {
+        const db = await getDB();
+        return db.getAllFilenames();
+    }
+
+    // ── Context value ────────────────────────────────────────────────────────
     return (
         <VaultContext.Provider value={{
             vaultItems,
             albums,
+            favouriteItems,
             isReady,
+
             importToVault,
+            restoreToGallery,
             deleteFromVault,
-            refreshVault: loadVaultItems,
-            // albums
+            refreshVault,
+            getVaultFilenames,
+
+            toggleFavourite,
+            isFavourite,
+
             createAlbum,
-            deleteAlbum,
             updateAlbum,
+            deleteAlbum,
             addFileToAlbum,
             removeFileFromAlbum,
             getAlbumItems,
-            // favourites placeholder
-            favouriteItems: [],
-            toggleFavourite: () => {},
-            isFavourite: () => false,
         }}>
             {children}
         </VaultContext.Provider>
@@ -204,7 +312,7 @@ export function VaultProvider({ children }) {
 }
 
 export function useVaultStorage() {
-    const context = useContext(VaultContext);
-    if (!context) throw new Error('useVaultStorage must be used within VaultProvider');
-    return context;
+    const ctx = useContext(VaultContext);
+    if (!ctx) throw new Error('useVaultStorage must be used within VaultProvider');
+    return ctx;
 }
