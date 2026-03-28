@@ -7,37 +7,54 @@ import { useVaultStorage } from '../context/VaultContext';
 const theme = Colors.dark;
 
 export default function StorageAnalysisScreen({ navigation }) {
-    const { vaultItems } = useVaultStorage();
+    const { vaultItems = [] } = useVaultStorage(); // Added fallback
 
-    // Logic to calculate sizes (Replace with real logic later)
+    // Logic to calculate sizes
     const photos = vaultItems.filter(i => i.type === 'photo');
     const videos = vaultItems.filter(i => i.type === 'video');
 
-    // Dummy sizes for UI testing
-    const photoSize = (photos.length * 1.2).toFixed(1); // Assume 1.2MB avg
-    const videoSize = (videos.length * 15.5).toFixed(1); // Assume 15.5MB avg
-    const totalSize = (parseFloat(photoSize) + parseFloat(videoSize)).toFixed(1);
+    // Dummy sizes for UI testing (Real logic would sum file sizes)
+    const photoSizeNum = photos.length * 1.2;
+    const videoSizeNum = videos.length * 15.5;
+
+    const totalSizeNum = photoSizeNum + videoSizeNum;
+    const totalSize = totalSizeNum.toFixed(1);
+
+    // Calculate Percentages for Progress Bar
+    const photoPercent = totalSizeNum > 0 ? (photoSizeNum / totalSizeNum) * 100 : 0;
+    const videoPercent = totalSizeNum > 0 ? (videoSizeNum / totalSizeNum) * 100 : 0;
 
     return (
-        <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+        <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={['top']}>
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-                    <Ionicons name="chevron-back" size={24} color={theme.text} />
+                    <Ionicons name="chevron-back" size={24} color="#fff" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Vault Analysis</Text>
                 <View style={{ width: 40 }} />
             </View>
 
-            <ScrollView contentContainerStyle={styles.content}>
-                {/* Storage Card */}
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+                {/* Main Storage Card */}
                 <View style={[styles.mainCard, { backgroundColor: theme.elevated }]}>
                     <Text style={styles.cardLabel}>Total Vault Size</Text>
-                    <Text style={styles.cardValue}>{totalSize} MB</Text>
+                    <Text style={styles.cardValue}>{totalSize} <Text style={styles.unitText}>MB</Text></Text>
 
                     {/* Visual Progress Bar */}
                     <View style={styles.progressContainer}>
-                        <View style={[styles.progressBar, { width: '40%', backgroundColor: Brand.primary }]} />
-                        <View style={[styles.progressBar, { width: '30%', backgroundColor: Brand.accent }]} />
+                        <View style={[styles.progressBar, { width: `${photoPercent}%`, backgroundColor: Brand.primary }]} />
+                        <View style={[styles.progressBar, { width: `${videoPercent}%`, backgroundColor: Brand.accent }]} />
+                    </View>
+
+                    <View style={styles.legendRow}>
+                        <View style={styles.legendItem}>
+                            <View style={[styles.dot, { backgroundColor: Brand.primary }]} />
+                            <Text style={styles.legendText}>Photos</Text>
+                        </View>
+                        <View style={styles.legendItem}>
+                            <View style={[styles.dot, { backgroundColor: Brand.accent }]} />
+                            <Text style={styles.legendText}>Videos</Text>
+                        </View>
                     </View>
                 </View>
 
@@ -48,21 +65,14 @@ export default function StorageAnalysisScreen({ navigation }) {
                         color={Brand.primary}
                         label="Photos"
                         count={photos.length}
-                        size={`${photoSize} MB`}
+                        size={`${photoSizeNum.toFixed(1)} MB`}
                     />
                     <AnalysisItem
                         icon="videocam"
                         color={Brand.accent}
                         label="Videos"
                         count={videos.length}
-                        size={`${videoSize} MB`}
-                    />
-                    <AnalysisItem
-                        icon="document"
-                        color="#6366F1"
-                        label="Documents"
-                        count={0}
-                        size="0 MB"
+                        size={`${videoSizeNum.toFixed(1)} MB`}
                     />
                 </View>
             </ScrollView>
@@ -87,21 +97,37 @@ function AnalysisItem({ icon, color, label, count, size }) {
 
 const styles = StyleSheet.create({
     container: { flex: 1 },
-    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: Spacing.lg },
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: Spacing.lg,
+        paddingVertical: Spacing.md
+    },
+    backBtn: { width: 40, height: 40, alignItems: 'flex-start', justifyContent: 'center' },
     headerTitle: { fontSize: FontSize.lg, fontWeight: FontWeight.bold, color: '#fff' },
     content: { padding: Spacing.lg },
-    mainCard: { padding: Spacing.xl, borderRadius: Radius.xl, alignItems: 'center', marginBottom: Spacing.xl },
-    cardLabel: { color: theme.textSecondary, fontSize: FontSize.sm, marginBottom: 4 },
-    cardValue: { fontSize: 32, fontWeight: FontWeight.bold, color: '#fff' },
+    mainCard: {
+        padding: Spacing.xl,
+        borderRadius: Radius.xl,
+        marginBottom: Spacing.xl
+    },
+    cardLabel: { color: theme.textSecondary, fontSize: FontSize.sm, marginBottom: 4, textAlign: 'center' },
+    cardValue: { fontSize: 36, fontWeight: FontWeight.bold, color: '#fff', textAlign: 'center' },
+    unitText: { fontSize: FontSize.md, color: theme.textSecondary },
     progressContainer: {
-        height: 8, width: '100%', backgroundColor: theme.border,
-        borderRadius: 4, marginTop: Spacing.xl, flexDirection: 'row', overflow: 'hidden'
+        height: 10, width: '100%', backgroundColor: theme.border,
+        borderRadius: 5, marginTop: Spacing.xl, flexDirection: 'row', overflow: 'hidden'
     },
     progressBar: { height: '100%' },
-    list: { gap: Spacing.md },
-    itemRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: Spacing.md, borderBottomWidth: 1 },
-    itemIcon: { width: 40, height: 40, borderRadius: Radius.md, alignItems: 'center', justifyContent: 'center', marginRight: Spacing.md },
-    itemLabel: { color: '#fff', fontSize: FontSize.md, fontWeight: FontWeight.medium },
-    itemCount: { color: theme.textSecondary, fontSize: FontSize.xs },
-    itemSize: { color: '#fff', fontWeight: FontWeight.semibold }
+    legendRow: { flexDirection: 'row', justifyContent: 'center', marginTop: Spacing.lg, gap: Spacing.lg },
+    legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    dot: { width: 8, height: 8, borderRadius: 4 },
+    legendText: { color: theme.textSecondary, fontSize: FontSize.xs },
+    list: { gap: Spacing.xs },
+    itemRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: Spacing.lg, borderBottomWidth: 1 },
+    itemIcon: { width: 44, height: 44, borderRadius: Radius.md, alignItems: 'center', justifyContent: 'center', marginRight: Spacing.md },
+    itemLabel: { color: '#fff', fontSize: FontSize.md, fontWeight: FontWeight.semibold },
+    itemCount: { color: theme.textSecondary, fontSize: FontSize.xs, marginTop: 2 },
+    itemSize: { color: '#fff', fontWeight: FontWeight.bold, fontSize: FontSize.sm }
 });
