@@ -3,19 +3,23 @@ import { memo, useRef, useState } from 'react';
 import {
     Dimensions,
     FlatList,
+    Image,
     ScrollView, StatusBar, StyleSheet,
     Text, TextInput, TouchableOpacity, View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import BottomNavBar from '../components/BottomNavBar';
 import BottomSheet from '../components/BottomSheet';
 import Toast, { useToast } from '../components/Toast';
 import VaultModal from '../components/VaultModal';
+import Header from '../components/Header';
 import { Brand, Colors, FontWeight, Radius, Spacing } from '../constants/theme';
 import { useVaultStorage } from '../context/VaultContext';
 
 const theme = Colors.dark;
 const { width } = Dimensions.get('window');
-const COLUMN_WIDTH = (width - (Spacing.lg * 2) - (Spacing.sm * 2)) / 3;
+// Adjusted width for a cleaner 3-column grid with Samsung-style spacing
+const COLUMN_WIDTH = (width - (Spacing.lg * 2) - (Spacing.md * 2)) / 3;
 
 const ALBUM_COLORS = [
     '#F59E0B', '#3B82F6', '#8B5CF6', '#22C55E',
@@ -28,7 +32,7 @@ const ALBUM_ICONS = [
     'airplane-outline', 'home-outline', 'camera-outline', 'star-outline',
 ];
 
-// --- SEPARATE FORM COMPONENT (Fixes Keyboard Disappearing) ---
+// --- SEPARATE FORM COMPONENT ---
 const AlbumForm = ({ initialName = '', initialColor, initialIcon, onSubmit, submitLabel }) => {
     const [name, setName] = useState(initialName);
     const [color, setColor] = useState(initialColor || ALBUM_COLORS[0]);
@@ -95,21 +99,45 @@ const AlbumForm = ({ initialName = '', initialColor, initialIcon, onSubmit, subm
     );
 };
 
-// --- GRID CARD COMPONENT ---
-const AlbumCard = memo(({ item, onPress, onLongPress }) => (
-    <TouchableOpacity
-        style={[styles.card, { backgroundColor: theme.elevated }]}
-        onPress={onPress}
-        onLongPress={onLongPress}
-        activeOpacity={0.7}
-    >
-        <View style={[styles.cardIcon, { backgroundColor: item.color + '20' }]}>
-            <Ionicons name={item.icon} size={26} color={item.color} />
-        </View>
-        <Text style={styles.cardName} numberOfLines={1}>{item.name}</Text>
-        <Text style={styles.cardCount}>{item.fileNames.length} files</Text>
-    </TouchableOpacity>
-));
+// --- SAMSUNG STYLE ALBUM CARD ---
+const AlbumCard = memo(({ item, onPress, onLongPress }) => {
+    const { vaultItems } = useVaultStorage();
+
+    // Find the first file in this album to use as a cover
+    const coverFile = vaultItems.find(f => f.filename === item.fileNames[0]);
+    const thumbnailUri = coverFile?.uri;
+
+    return (
+        <TouchableOpacity
+            style={styles.card}
+            onPress={onPress}
+            onLongPress={onLongPress}
+            activeOpacity={0.7}
+        >
+            <View style={[styles.cardThumbnail, { backgroundColor: theme.elevated }]}>
+                {thumbnailUri ? (
+                    <Image
+                        source={{ uri: thumbnailUri }}
+                        style={styles.thumbnailImage}
+                        resizeMode="cover"
+                    />
+                ) : (
+                    <Ionicons name={item.icon} size={32} color={item.color + '60'} />
+                )}
+
+                {/* Visual indicator of the album's assigned color/icon */}
+                <View style={[styles.miniBadge, { backgroundColor: item.color }]}>
+                    <Ionicons name={item.icon} size={10} color="#fff" />
+                </View>
+            </View>
+
+            <View style={styles.cardInfo}>
+                <Text style={styles.cardName} numberOfLines={1}>{item.name}</Text>
+                <Text style={styles.cardCount}>{item.fileNames.length}</Text>
+            </View>
+        </TouchableOpacity>
+    );
+});
 
 export default function AlbumsScreen({ navigation }) {
     const { albums, createAlbum, deleteAlbum, updateAlbum } = useVaultStorage();
@@ -161,15 +189,11 @@ export default function AlbumsScreen({ navigation }) {
             <SafeAreaView style={{ flex: 1 }} edges={['top']}>
                 <StatusBar barStyle="light-content" />
 
-                <View style={styles.header}>
-                    <Text style={styles.headerTitle}>Albums</Text>
-                    <TouchableOpacity
-                        style={[styles.iconBtn, { backgroundColor: theme.elevated }]}
-                        onPress={() => setShowCreateSheet(true)}
-                    >
-                        <Ionicons name="add" size={24} color={Brand.primary} />
-                    </TouchableOpacity>
-                </View>
+                <Header
+                    type="brand"
+                    title="Albums"
+                    subtitle={albums.length > 0 ? `${albums.length} folders` : null}
+                />
 
                 <FlatList
                     data={albums}
@@ -194,6 +218,11 @@ export default function AlbumsScreen({ navigation }) {
                     )}
                 />
             </SafeAreaView>
+
+            <BottomNavBar
+                active="Albums"
+                onNavigate={(screen) => navigation.navigate(screen)}
+            />
 
             <BottomSheet visible={showCreateSheet} onClose={() => setShowCreateSheet(false)} title="New Album" snapPoint={0.8}>
                 <AlbumForm onSubmit={handleCreate} submitLabel="Create Album" />
@@ -240,20 +269,54 @@ const styles = StyleSheet.create({
     headerTitle: { fontSize: 28, fontWeight: FontWeight.bold, color: '#fff' },
     iconBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
     sectionLabel: { fontSize: 10, fontWeight: 'bold', color: theme.textSecondary, letterSpacing: 1, marginBottom: 16 },
-    list: { paddingHorizontal: Spacing.lg, paddingBottom: 100 },
-    columnWrapper: { justifyContent: 'flex-start', gap: Spacing.sm },
+    list: { paddingHorizontal: Spacing.lg, paddingBottom: 130 },
+    columnWrapper: { justifyContent: 'flex-start', gap: Spacing.md, marginBottom: Spacing.md },
+
+    // Samsung Gallery Logic
     card: {
         width: COLUMN_WIDTH,
-        aspectRatio: 0.9,
-        borderRadius: Radius.lg,
-        padding: Spacing.sm,
-        alignItems: 'center',
-        justifyContent: 'center',
         marginBottom: Spacing.sm,
     },
-    cardIcon: { width: 50, height: 50, borderRadius: 15, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
-    cardName: { fontSize: 13, fontWeight: '600', color: '#fff', textAlign: 'center' },
-    cardCount: { fontSize: 10, color: theme.textSecondary, marginTop: 2 },
+    cardThumbnail: {
+        width: COLUMN_WIDTH,
+        height: COLUMN_WIDTH,
+        borderRadius: Radius.lg,
+        overflow: 'hidden',
+        alignItems: 'center',
+        justifyContent: 'center',
+        position: 'relative',
+    },
+    thumbnailImage: {
+        width: '100%',
+        height: '100%',
+    },
+    miniBadge: {
+        position: 'absolute',
+        bottom: 6,
+        right: 6,
+        width: 18,
+        height: 18,
+        borderRadius: 9,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1.5,
+        borderColor: theme.background,
+    },
+    cardInfo: {
+        marginTop: 6,
+        paddingHorizontal: 2,
+    },
+    cardName: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#fff',
+    },
+    cardCount: {
+        fontSize: 12,
+        color: theme.textSecondary,
+        marginTop: 1
+    },
+
     emptyContainer: { alignItems: 'center', marginTop: 100 },
     emptyTitle: { color: theme.textSecondary, marginTop: 10 },
     fieldLabel: { fontSize: 10, fontWeight: 'bold', color: theme.textSecondary, marginBottom: 8 },
