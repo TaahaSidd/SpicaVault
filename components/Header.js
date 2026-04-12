@@ -149,7 +149,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingHorizontal: Spacing.sm,
         paddingBottom: 12,
-        backgroundColor: 'rgba(0,0,0,0.5)',
+        //backgroundColor: 'rgba(255, 0, 0, 0.5)',
     },
     slotLeft: {
         flex: 1,

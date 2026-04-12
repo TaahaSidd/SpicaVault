@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Image, StyleSheet, Text, TouchableWithoutFeedback, View } from 'react-native';
+import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
     runOnJS, useAnimatedStyle, useSharedValue, withSpring,
@@ -17,7 +17,6 @@ function ZoomablePhoto({ uri, onTap, width, height, scrollRef }) {
     const savedTx = useSharedValue(0);
     const savedTy = useSharedValue(0);
 
-    // ── Worklet helpers ───────────────────────────────────────────────────────
     const resetZoom = (animated = true) => {
         'worklet';
         scale.value = animated ? withSpring(1, SPRING) : 1;
@@ -30,12 +29,10 @@ function ZoomablePhoto({ uri, onTap, width, height, scrollRef }) {
 
     const clampTranslation = (val, screenSize, currentScale) => {
         'worklet';
-        // How far can we pan before the image edge hits the screen edge
         const maxOffset = (screenSize * (currentScale - 1)) / 2;
         return Math.max(-maxOffset, Math.min(maxOffset, val));
     };
 
-    // ── Pinch to zoom ─────────────────────────────────────────────────────────
     const pinch = Gesture.Pinch()
         .onUpdate(e => {
             'worklet';
@@ -47,7 +44,6 @@ function ZoomablePhoto({ uri, onTap, width, height, scrollRef }) {
                 resetZoom();
             } else {
                 savedScale.value = scale.value;
-                // Clamp translation so image doesn't go out of bounds after pinch
                 tx.value = clampTranslation(tx.value, width, scale.value);
                 ty.value = clampTranslation(ty.value, height, scale.value);
                 savedTx.value = tx.value;
@@ -55,7 +51,6 @@ function ZoomablePhoto({ uri, onTap, width, height, scrollRef }) {
             }
         });
 
-    // ── Pan (only active when zoomed in) ──────────────────────────────────────
     const pan = Gesture.Pan()
         .minDistance(1)
         .averageTouches(true)
@@ -73,13 +68,12 @@ function ZoomablePhoto({ uri, onTap, width, height, scrollRef }) {
             savedTy.value = ty.value;
         });
 
-    // ── Double tap to zoom ────────────────────────────────────────────────────
     const doubleTap = Gesture.Tap()
         .numberOfTaps(2)
         .maxDelay(300)
         .maxDistance(20)
         .onEnd(() => {
-            'worklet'; // ✅ must be FIRST line inside onEnd callback
+            'worklet';
             if (scale.value > 1) {
                 resetZoom();
             } else {
@@ -88,7 +82,6 @@ function ZoomablePhoto({ uri, onTap, width, height, scrollRef }) {
             }
         });
 
-    // ── Single tap to toggle UI ───────────────────────────────────────────────
     const singleTap = Gesture.Tap()
         .maxDuration(250)
         .maxDistance(10)
@@ -97,9 +90,6 @@ function ZoomablePhoto({ uri, onTap, width, height, scrollRef }) {
             runOnJS(onTap)();
         });
 
-    // ── Composition ───────────────────────────────────────────────────────────
-    // Simultaneous: pinch + pan work together (two-finger drag while zoomed)
-    // Exclusive: doubleTap wins over singleTap (wait to confirm it's not a double)
     const composed = Gesture.Simultaneous(
         pinch,
         pan,
@@ -126,39 +116,54 @@ function ZoomablePhoto({ uri, onTap, width, height, scrollRef }) {
 }
 
 // ── Video Thumb ───────────────────────────────────────────────────────────────
-function VideoThumb({ item, onPlay, width, height }) {
+// Only the play button circle triggers video playback — tapping elsewhere does nothing
+function VideoThumb({ item, onPlay, onTap, width, height }) {
     return (
-        <TouchableWithoutFeedback onPress={onPlay}>
-            <View style={{ width, height, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' }}>
-                <Image
-                    source={{ uri: item.uri }}
-                    style={StyleSheet.absoluteFill}
-                    resizeMode="contain"
-                />
-                <View style={styles.videoOverlay}>
-                    <View style={styles.playCircle}>
-                        <Ionicons name="play" size={38} color="#fff" />
-                    </View>
-                    <Text style={styles.tapHint}>Tap to play</Text>
-                </View>
-            </View>
-        </TouchableWithoutFeedback>
+        <View
+            style={{ width, height, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' }}
+        >
+            {/* Thumbnail image — tappable to toggle UI only */}
+            <Image
+                source={{ uri: item.uri }}
+                style={StyleSheet.absoluteFill}
+                resizeMode="contain"
+            />
+
+            {/* Dark scrim so play button stands out */}
+            <View style={styles.scrim} />
+
+            {/* Overlay — tap anywhere on overlay toggles UI */}
+            <Animated.View
+                style={StyleSheet.absoluteFill}
+                onTouchEnd={onTap}
+            />
+
+            {/* Play button — ONLY this triggers video playback */}
+            <TouchableOpacity
+                style={styles.playCircle}
+                onPress={onPlay}
+                activeOpacity={0.8}
+            >
+                <Ionicons name="play" size={38} color="#fff" />
+            </TouchableOpacity>
+
+            <Text style={styles.tapHint} pointerEvents="none">Tap to play</Text>
+        </View>
     );
 }
 
 // ── MediaCard ─────────────────────────────────────────────────────────────────
-/**
- * Props:
- *   item        — { uri, type: 'image' | 'video', filename }
- *   width       — screen width
- *   height      — screen height
- *   onTap       — () => void
- *   onPlayVideo — () => void
- *   scrollRef   — ref to parent RNGH ScrollView
- */
 export default function MediaCard({ item, width, height, onTap, onPlayVideo, scrollRef }) {
     if (item.type === 'video') {
-        return <VideoThumb item={item} onPlay={onPlayVideo} width={width} height={height} />;
+        return (
+            <VideoThumb
+                item={item}
+                onPlay={onPlayVideo}
+                onTap={onTap}
+                width={width}
+                height={height}
+            />
+        );
     }
     return (
         <ZoomablePhoto
@@ -172,20 +177,24 @@ export default function MediaCard({ item, width, height, onTap, onPlayVideo, scr
 }
 
 const styles = StyleSheet.create({
-    videoOverlay: {
+    scrim: {
         ...StyleSheet.absoluteFillObject,
-        justifyContent: 'center',
-        alignItems: 'center',
-        gap: 12,
+        backgroundColor: 'rgba(0,0,0,0.25)',
     },
     playCircle: {
         width: 80, height: 80, borderRadius: 40,
-        backgroundColor: 'rgba(0,0,0,0.55)',
+        backgroundColor: 'rgba(0,0,0,0.6)',
         justifyContent: 'center', alignItems: 'center',
         paddingLeft: 4,
+        zIndex: 10,
+        // Subtle border so it pops against dark backgrounds
+        borderWidth: 1.5,
+        borderColor: 'rgba(255,255,255,0.3)',
     },
     tapHint: {
-        color: 'rgba(255,255,255,0.7)',
+        color: 'rgba(255,255,255,0.6)',
         fontSize: FontSize.sm,
+        marginTop: 12,
+        zIndex: 10,
     },
 });

@@ -5,7 +5,7 @@ import {
     StyleSheet, Text, View,
 } from 'react-native';
 import { Brand, Colors, FontSize, FontWeight, Radius, Spacing } from '../constants/theme';
-import Button from './Button'; // Assuming your Button component is in the same directory
+import Button from './Button';
 
 const theme = Colors.dark;
 
@@ -26,8 +26,8 @@ export default function VaultModal({
     primaryText = 'Confirm',
     secondaryText = 'Cancel',
     primaryDestructive = false,
-    loading = false,       // New: Pass through to Button
-    holdToTrigger = false, // New: Pass through to Button
+    loading = false,
+    holdToTrigger = false,
     onPrimary,
     onSecondary,
     onClose,
@@ -70,38 +70,39 @@ export default function VaultModal({
                     ]}
                     onStartShouldSetResponder={() => true}
                 >
-                    {/* Icon Section */}
                     {iconConfig && (
                         <View style={[styles.iconWrap, { backgroundColor: iconConfig.color + '15' }]}>
                             <Ionicons name={iconConfig.name} size={28} color={iconConfig.color} />
                         </View>
                     )}
 
-                    {/* Content Section */}
                     {title && <Text style={styles.title}>{title}</Text>}
                     {message && <Text style={styles.message}>{message}</Text>}
                     {children && <View style={styles.customContent}>{children}</View>}
 
-                    {/* Action Section */}
                     {type !== 'custom' && (
                         <View style={styles.btnRow}>
                             {secondaryText && (
-                                <Button
-                                    title={secondaryText}
-                                    variant="secondary"
-                                    onPress={onSecondary || onClose}
-                                    disabled={loading}
-                                />
+                                <View style={styles.btnWrapper}>
+                                    <Button
+                                        title={secondaryText}
+                                        variant="secondary"
+                                        onPress={onSecondary || onClose}
+                                        disabled={loading}
+                                        fullWidth
+                                    />
+                                </View>
                             )}
-                            <Button
-                                title={primaryText}
-                                variant={primaryDestructive ? 'danger' : 'primary'}
-                                onPress={onPrimary}
-                                loading={loading}
-                                holdToTrigger={holdToTrigger}
-                                // If no secondary text, make the primary button fit content rather than flex
-                                fullWidth={true}
-                            />
+                            <View style={styles.btnWrapper}>
+                                <Button
+                                    title={primaryText}
+                                    variant={primaryDestructive ? 'danger' : 'primary'}
+                                    onPress={onPrimary}
+                                    loading={loading}
+                                    holdToTrigger={holdToTrigger}
+                                    fullWidth
+                                />
+                            </View>
                         </View>
                     )}
                 </Animated.View>
@@ -153,7 +154,10 @@ const styles = StyleSheet.create({
     btnRow: {
         flexDirection: 'row',
         gap: Spacing.sm,
-        marginTop: Spacing.md,
+        marginTop: Spacing.lg,
         width: '100%',
     },
+    btnWrapper: {
+        flex: 1, // Crucial for equal button sizing
+    }
 });

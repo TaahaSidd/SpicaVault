@@ -9,12 +9,12 @@ export default function InfoBox({ message, variant = 'note', style }) {
 
     return (
         <View style={[
-            styles.container, 
-            isElevated && styles.elevatedContainer, 
+            styles.container,
+            isElevated && styles.elevatedContainer,
             style
         ]}>
             <Text style={[
-                styles.text, 
+                styles.text,
                 isElevated ? styles.textElevated : styles.textNote
             ]}>
                 {message}

@@ -47,7 +47,7 @@ const styles = StyleSheet.create({
         borderTopWidth: 0.5,
         borderTopColor: Colors.dark.border,
         paddingTop: 10,
-        borderRadius: 30,
+        //borderRadius: 30,
     },
     tab: {
         flex: 1,

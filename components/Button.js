@@ -180,9 +180,8 @@ const styles = StyleSheet.create({
     outline: { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: Brand.primary },
     ghost: { backgroundColor: 'transparent' },
     danger: {
-        backgroundColor: 'rgba(239, 68, 68, 0.1)',
-        borderWidth: 1.5,
-        borderColor: 'rgba(239, 68, 68, 0.3)'
+        backgroundColor: '#EF4444', // Solid Red
+        borderWidth: 0,             // Remove border
     },
     text: { backgroundColor: 'transparent', paddingHorizontal: 0, paddingVertical: 4 },
 
@@ -200,7 +199,9 @@ const styles = StyleSheet.create({
     secondaryText: { color: theme.text },
     outlineText: { color: Brand.primary },
     ghostText: { color: Brand.primary },
-    dangerText: { color: '#EF4444' },
+    dangerText: {
+        color: '#FFFFFF'
+    },
     textText: { color: Brand.primary },
     disabledText: { color: theme.textSecondary },
 
