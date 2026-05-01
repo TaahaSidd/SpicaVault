@@ -1,3 +1,5 @@
+<img width="6036" height="1854" alt="Dev-banner-SV" src="https://github.com/user-attachments/assets/f4e32a37-cdd3-4a9d-a4cd-49bec380e34d" />
+
 # SpicaVault — Private Media Vault
 
 A secure and minimal private vault application designed to help users store and manage sensitive photos, videos, and files with full control and privacy.
