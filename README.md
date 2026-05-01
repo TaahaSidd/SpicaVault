@@ -1,50 +1,78 @@
-# Welcome to your Expo app 👋
+# SpicaVault — Private Media Vault
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A secure and minimal private vault application designed to help users store and manage sensitive photos, videos, and files with full control and privacy.
 
-## Get started
+## Overview
 
-1. Install dependencies
+SpicaVault is built for users who want to keep personal content hidden from their main gallery without relying on insecure or ad-heavy applications. It provides a clean, distraction-free experience focused on privacy, performance, and simplicity.
 
-   ```bash
-   npm install
-   ```
+## Problem
 
-2. Start the app
+Most “secure folder” apps:
+- rely heavily on ads and trackers
+- provide weak or unclear data protection
+- expose files through system galleries or backups
+- offer poor user experience
 
-   ```bash
-   npx expo start
-   ```
+Users need a trustworthy, offline-first solution where their data stays under their control.
 
-In the output, you'll find options to open the app in a
+## Solution
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+SpicaVault creates an isolated storage environment where:
+- files are securely imported and hidden from public galleries
+- access is restricted via authentication
+- content is managed within a controlled, private interface
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+## Core Features
 
-## Get a fresh project
+### 🔐 Security & Privacy
+- App-level authentication (PIN / biometric ready)
+- Hidden storage isolated from system gallery
+- No third-party tracking or analytics
 
-When you're ready, run:
+### 📁 Media Management
+- Import photos and videos into vault
+- Organized grid view for quick access
+- Safe deletion and management tools
 
-```bash
-npm run reset-project
-```
+### ⚡ Performance
+- Lightweight and fast
+- Offline-first architecture
+- Optimized media loading
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## Tech Stack
 
-## Learn more
+- Mobile: React Native (Expo)
+- Storage: Local device storage (secure handling)
+- Future: Encryption layer (planned)
 
-To learn more about developing your project with Expo, look at the following resources:
+## Engineering Decisions
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+- Chose local storage over cloud to prioritize user privacy
+- Avoided background sync to eliminate data leakage risks
+- Designed import flow to ensure original files are not publicly accessible
 
-## Join the community
+## Challenges
 
-Join our community of developers creating universal apps.
+- Handling file imports while respecting OS-level permissions
+- Ensuring media is not indexed by system gallery apps
+- Balancing security with smooth UX
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## Future Improvements
+
+- End-to-end encryption for stored media
+- Decoy vault / stealth mode
+- Cloud backup (user-controlled and encrypted)
+- Folder-based organization
+
+## Status
+
+🚧 Actively in development
+
+## Disclaimer
+
+SpicaVault focuses on privacy but does not replace full device-level encryption. Users are responsible for securing their devices.
+
+## License
+
+MIT License
