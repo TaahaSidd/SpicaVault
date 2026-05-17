@@ -27,17 +27,17 @@ SpicaVault creates an isolated storage environment where:
 
 ## Core Features
 
-### 🔐 Security & Privacy
+### Security & Privacy
 - App-level authentication (PIN / biometric ready)
 - Hidden storage isolated from system gallery
 - No third-party tracking or analytics
 
-### 📁 Media Management
+### Media Management
 - Import photos and videos into vault
 - Organized grid view for quick access
 - Safe deletion and management tools
 
-### ⚡ Performance
+### Performance
 - Lightweight and fast
 - Offline-first architecture
 - Optimized media loading
@@ -69,7 +69,7 @@ SpicaVault creates an isolated storage environment where:
 
 ## Status
 
-🚧 Actively in development
+Actively in development
 
 ## Disclaimer
 
